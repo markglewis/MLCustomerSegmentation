@@ -1,0 +1,325 @@
+---
+title: "Assignment 2 Markdown"
+author: "Mark Lewis"
+date: "March 9, 2019"
+output: pdf_document
+---
+
+```{r}
+#copy above to insert a new block
+
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(Hmisc)
+library(corrplot)
+library(mice)
+library(VIM)
+library(pROC)
+library(caret)
+library(sqldf)
+library(readxl)
+library(ggplot2)
+
+library(dbscan)
+library(fpc)
+library(factoextra)
+library(NbClust)
+library(vegan)
+```
+
+
+#Import the raw data set
+
+```{r}
+data <- read.csv("OnlineRetail.csv") 
+summary(data)
+```
+#Create a new collumn containing total amount of money spent
+
+```{r}
+data$totalSpent <- data$UnitPrice * data$Quantity
+```
+
+
+#Convert the dates from strings to the appropriate format so they can be interpreted as such
+```{r}
+dates <- as.character(data$InvoiceDate)
+datesX <- strsplit(dates, " ")
+datesX <- matrix(unlist(datesX), ncol=2, byrow=TRUE)
+datesY <- strsplit(datesX[,1], "/")
+datesY <- matrix(unlist(datesY), ncol=3, byrow=TRUE)
+datesZ <- strsplit(datesX[,2], ":")
+datesZ <- matrix(unlist(datesZ), ncol=2, byrow=TRUE)
+```
+
+#Create new columns for Year, Month, Day, Hour and Minute
+```{r}
+data$month <- datesY[,1]
+data$day <- datesY[,2]
+data$year <- datesY[,3]
+data$hour <- datesZ[,1]
+data$minute <- datesZ[,2]
+
+
+data$month <- as.numeric(as.character(data$month))
+data$day <- as.numeric(as.character(data$day))
+data$year <- as.numeric(as.character(data$year))
+data$hour <- as.numeric(as.character(data$hour))
+data$minute <- as.numeric(as.character(data$minute))
+
+```
+
+#DATA EXPLORATION
+
+
+#ORDERS
+
+#How many unique orders are there? 
+```{r }
+str(data$InvoiceNo)
+summary(data$InvoiceNo)
+```
+
+#What is the average number of products in an Order?
+```{r }
+#Dont run this takes to long 
+#OrderTable <- levels(data$InvoiceNo)
+#OrderTable <- cbind(OrderTable)
+#OrderTable <- as.data.frame(as.table(OrderTable))
+#OrderTable$Var1 <- NULL
+#OrderTable$Var2 <- NULL
+#OrderTable[,"AverageNumofProd"] <- NA
+
+#for( i in rownames(OrderTable) ){
+#  for( j in rownames(data)){
+#    if(as.character(OrderTable[i,"Freq"])==as.character(data[j,"InvoiceNo"])){
+#      if(is.na(OrderTable[i,"AverageNumofProd"])){
+#        OrderTable[i,"AverageNumofProd"] <- 1
+#      }
+#      else{
+#        OrderTable[i,"AverageNumofProd"] <- OrderTable[i,"AverageNumofProd"]+1
+#      }
+#    }
+#  }
+#}
+```
+
+
+#What are the Minimum and Maximum Amounts spend on Orders?
+
+```{r }
+min(data$totalSpent)
+max(data$totalSpent)
+```
+
+#What is the Average Total Amount and Median Total Amount spent on each Order?
+```{r }
+summary(data$totalSpent)
+```
+
+#PRODUCTS
+
+#How many unique Products are there?
+```{r }
+str(data$StockCode)
+summary(data$StockCode)
+str(data$Description)
+```
+
+#What are the Minimum and Maximum Prices of Products?
+```{r }
+summary(data$UnitPrice)
+```
+#What are the Average and Median prices of these Products? 
+```{r }
+mean(data$UnitPrice)
+median(data$UnitPrice)
+```
+
+
+#CUSTOMERS
+
+#How many unique customers are there?
+```{r }
+data$CustomerID <- as.factor(data$CustomerID)
+str(data$CustomerID)
+```
+
+#Where are the customers from?
+```{r }
+summary(data$Country)
+```
+#What is the Minimum amount, Maximum Amount, Average and Median amounts spent by the Customer?
+```{r }
+#Dont run this takes to long 
+# Customers <- levels(data$CustomerID)
+# Customers <- cbind(Customers)
+# Customers <- as.data.frame(as.table(Customers))
+# Customers$Var1 <- NULL
+# Customers$Var2 <- NULL
+# Customers[,"AmountSpent"] <- NA
+# for( i in rownames(Customers) ){
+#   for( j in rownames(data)){
+#     if(as.character(Customers[i,"Freq"])==as.character(data[j,"CustomerID"])){
+#       if(is.na(Customers[i,"AmountSPent"])){
+#         Customers[i,"AmountSpent"] <- data[j,"totalSpent"]
+#       }
+#       else{
+#         Customers[i,"AmountSpent"] <- (Customers[i,"totalSpent"]+data[j,"totalSpent"])/2
+#       }
+#     }
+#   }
+# }
+# summary(Customers$AmountSpent)
+```
+
+#WILL CLEAN UP ROWS 120 - 184
+#creating new collumns for new transactions
+```{r }
+data$Cancelled<-ifelse(substring(data$InvoiceNo,0,1)=="C",1,0)
+data$Amazon<-ifelse(data$StockCode =="AMAZONFEE",1,0)
+data$BANK<-ifelse(data$StockCode =="BANK CHARGES",1,0)
+data$Carriage<-ifelse(data$StockCode =="C2",1,0)
+data$Commision<-ifelse(data$StockCode =="CRUK",1,0)
+data$Discount<-ifelse(data$StockCode =="D",1,0)
+data$DOT<-ifelse(data$StockCode =="DOT",1,0)
+data$Manual<-ifelse(data$StockCode =="M",1,0)
+data$post<-ifelse(data$StockCode =="POST",1,0)
+data$Samples<-ifelse(data$StockCode =="SAMPLES",1,0)
+```
+#general visualizations of each feature
+#DATA EXPLORATION HERE 
+```{r }
+summary(data$Description)
+```
+#you can see the the most popular items are listed first
+```{r }
+str(data$Description)
+summary(data$Quantity)
+table(data$Quantity)
+summary(data$UnitPrice)
+summary(data$Country)
+summary(data$totalSpent)
+table(data$month,data$day)
+table(data$year,data$month)
+```
+#example of a table you can print to see which products are popular depending on the month
+```{r }
+table(data$Description,data$month)
+```
+#a few more examples
+```{r }
+table(data$Country,data$hour)
+```
+#the lie below allows for the full set to be printed out
+```{r }
+#options(max.print=999999)
+```
+#here you can get an image of the most popular products
+
+#visualization of unique transactions
+#they take up only a small portion of transactions in the dataset
+```{r }
+table(data$Cancelled)
+table(data$Amazon)
+table(data$BANK)
+table(data$Carriage)
+table(data$Commision)
+table(data$Commision)
+table(data$Discount)
+table(data$DOT)
+table(data$Manual)
+table(data$post)
+table(data$Samples)
+
+summary(data$Quantity)
+summary(data$UnitPrice)
+```
+
+#graph
+
+#view number of cancelled transactions
+```{r }
+table(data$Cancelled)
+```
+#missing data
+```{r }
+is.na(data) = data==""
+sum(is.na(data))
+```
+#sum of rows missing from data
+```{r }
+mean(is.na(data))
+```
+
+
+
+#DATA PREPARATION
+
+#1. Remove Cancelled Transactions, Invalid Descriptions, and missing values
+```{r }
+data<-data[!(data$Amazon=="1" & data$BANK=="1" &data$Cancelled=="1" &data$Carriage=="1" &data$Commision=="1" &data$Discount=="1" &data$DOT=="1" &data$Manual=="1" &data$post=="1" &data$Samples=="1"),]
+data = na.omit(data)
+```
+
+
+
+
+#adjust dataset so that it can be interperated by unsupervised learning algorithms
+```{r }
+data$InvoiceNo <- NULL
+data$StockCode<-NULL
+data$Description<-NULL
+data$InvoiceDate<-NULL
+data$Country<-NULL
+data$CustomerID<-NULL
+data$year<-data$year-2010
+data$totalSpent<-NULL
+data$Cancelled <- NULL
+data$Amazon <- NULL
+data$BANK<-NULL
+data$Carriage<-NULL
+data$Commision<-NULL
+data$Discount<-NULL
+data$DOT<-NULL
+data$Manual<-NULL
+data$post<-NULL
+data$Samples<-NULL
+```
+#deal with outliers
+```{r }
+data$UnitPrice<-ifelse(data$UnitPrice < 0,-50,data$UnitPrice)
+data$Quantity<-ifelse(data$Quantity < 0,-50,data$Quantity)
+```
+
+#RUNNING THE MODEL
+
+#Determine number of clusters
+```{r }
+model <- cascadeKM(data, 1, 10, iter = 10)#takes to long to run with more iters dont bother
+model$results[2,]
+```
+#Plot this following line last takes to long to generate plot
+#Problems seem to arise since the data set is so big R studio doesnt seem to handle all the memory
+```{r }
+#plot(model, sortg = TRUE)
+```
+#Recommends which number of clusters to use, outputs 3
+```{r }
+which.max(model$results[2,])
+```
+#We're going with 2 clusters
+```{r }
+kresult <- kmeans(data,3)#3 if missing data is omiited #2if data wasnt omitted
+kresult$size
+```
+#see the visualization of the spread of clusters
+#Add clusters as a collumn corresponding to each transaction
+
+#other algorithms doesnt work because the data set it to big quotes the vector size is too big
+```{r }
+#hclustresult <- hclust(dist(data))
+#dbscanresult<- dbscan(data, .15)
+```
+
